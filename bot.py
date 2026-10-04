@@ -8,30 +8,30 @@ import requests
 TELEGRAM_BOT_TOKEN = "8619062228:AAGGoyimr33jeAgqM8ds7qBLKHxgm6-5rmQ"
 TELEGRAM_CHAT_ID = "-1003941863470"
 
-# Parâmetros exatos do seu perfil de Afiliado Meli
+# Parâmetros do perfil de Afiliado Mercado Livre
 MATT_TOOL = "41514834"
 MATT_WORD = "cleiton2001js"
 
-# Categorização para manter a proporção desejada
+# Termos de busca diretos
 TERMOS_SUPLEMENTOS = [
-    "creatina growth", "whey protein concentrado", "hipercalorico", 
-    "barra de proteina", "pre treino", "bcaa", "glutamina", 
-    "whey isolado", "pasta de amendoim"
+    "creatina", "whey protein", "hipercalorico", 
+    "barra proteica", "pre treino", "bcaa", "glutamina", 
+    "whey isolado", "pasta amendoim"
 ]
 
 TERMOS_ROUPAS = [
-    "camisa dry fit masculina treino", "top academia feminino", 
-    "bermuda treino academia", "legging academia feminina", 
-    "luva para academia treino", "garrafa de agua squeezes fitness"
+    "camisa dry fit masculina", "top academia feminino", 
+    "bermuda treino", "legging academia", 
+    "luva academia", "garrafa agua fitness"
 ]
 
 TERMOS_EQUIPAMENTOS = [
-    "elastico exercicio kit band", "colchonete academia", 
-    "par de halteres", "corda de pular profissional", "barra de porta exercicios"
+    "kit mini band", "colchonete academia", 
+    "par halteres", "corda pular", "barra porta exercicios"
 ]
 
 def escolher_termo_busca():
-    """Seleção proporcional: ~75% suplementos, ~15% roupas, ~10% equipamentos."""
+    """Proporção: ~75% suplementos, ~15% roupas, ~10% equipamentos."""
     sorteio = random.randint(1, 100)
     if sorteio <= 75:
         return random.choice(TERMOS_SUPLEMENTOS)
@@ -41,7 +41,7 @@ def escolher_termo_busca():
         return random.choice(TERMOS_EQUIPAMENTOS)
 
 def enviar_mensagem_telegram(texto):
-    """Envia mensagem para o canal do Telegram em HTML."""
+    """Envia mensagem formatada para o Telegram."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -54,20 +54,21 @@ def enviar_mensagem_telegram(texto):
         print(f"Status Telegram: {resposta.status_code}")
         return resposta.status_code == 200
     except Exception as e:
-        print(f"Erro ao enviar para o Telegram: {e}")
+        print(f"Erro Telegram: {e}")
         return False
 
 def buscar_e_enviar_oferta():
-    """Busca produtos no Mercado Livre Brasil e envia o link direto com a tag de afiliado."""
+    """Busca os produtos via API MLB e envia a mensagem com o link de afiliado."""
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "application/json"
     }
 
-    # Tenta até 3 vezes encontrar um produto válido antes de encerrar
-    for tentativa in range(3):
+    # Tenta até 5 termos diferentes antes de encerrar
+    for tentativa in range(5):
         termo = escolher_termo_busca()
         url = "https://api.mercadolibre.com/sites/MLB/search"
-        params = {"q": termo, "limit": 10}
+        params = {"q": termo, "limit": 20}
         
         try:
             resposta = requests.get(url, params=params, headers=headers, timeout=10)
@@ -75,8 +76,14 @@ def buscar_e_enviar_oferta():
                 dados = resposta.json()
                 resultados = dados.get("results", [])
                 
-                if resultados:
-                    item = random.choice(resultados)
+                # Filtra apenas itens válidos com preço e permalink
+                itens_validos = [
+                    item for item in resultados 
+                    if item.get("permalink") and item.get("price")
+                ]
+                
+                if itens_validos:
+                    item = random.choice(itens_validos)
                     
                     titulo = item.get("title")
                     preco_atual = float(item.get("price", 0))
@@ -88,7 +95,7 @@ def buscar_e_enviar_oferta():
                         preco_original = preco_atual * 1.25
                         desconto_pct = 20
 
-                    # Link direto do produto com parâmetro de afiliado
+                    # Monta o link direto do produto com a tag de afiliado
                     link_base = item.get("permalink")
                     divisor = "&" if "?" in link_base else "?"
                     link_produto = f"{link_base}{divisor}matt_tool={MATT_TOOL}&matt_word={MATT_WORD}"
@@ -103,13 +110,15 @@ def buscar_e_enviar_oferta():
                         f"⚠️ <i>Oferta por tempo limitado!</i>"
                     )
                     
-                    print(f"Enviando oferta [{termo}]: {titulo}")
+                    print(f"Sucesso na busca [{termo}]: {titulo}")
                     if enviar_mensagem_telegram(mensagem):
                         return
+            else:
+                print(f"Tentativa {tentativa+1} - API respondeu com status {resposta.status_code}")
         except Exception as e:
             print(f"Tentativa {tentativa+1} falhou: {e}")
             
-    print("Não foi possível enviar a oferta.")
+    print("Não foi possível obter produtos nesta execução.")
 
 if __name__ == "__main__":
     print("=== EXECUTANDO CRON JOB ===")
