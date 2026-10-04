@@ -1,5 +1,4 @@
 import os
-import time
 import random
 import requests
 
@@ -13,9 +12,7 @@ TELEGRAM_CHAT_ID = "-1003941863470"
 MATT_TOOL = "41514834"
 MATT_WORD = "cleiton2001js"
 
-# Tempo entre postagens (em segundos). Exemplo: 3600 = 1 hora
-INTERVALO_POSTAGEM = 3600 
-
+# Categorização para manter a proporção desejada
 TERMOS_SUPLEMENTOS = [
     "creatina growth", "whey protein concentrado", "hipercalorico", 
     "barra de proteina", "pre treino", "bcaa", "glutamina", 
@@ -34,7 +31,7 @@ TERMOS_EQUIPAMENTOS = [
 ]
 
 def escolher_termo_busca():
-    """Proporção: ~75% suplementos, ~15% roupas, ~10% equipamentos."""
+    """Seleção proporcional: ~75% suplementos, ~15% roupas, ~10% equipamentos."""
     sorteio = random.randint(1, 100)
     if sorteio <= 75:
         return random.choice(TERMOS_SUPLEMENTOS)
@@ -44,7 +41,7 @@ def escolher_termo_busca():
         return random.choice(TERMOS_EQUIPAMENTOS)
 
 def enviar_mensagem_telegram(texto):
-    """Envia mensagem para o canal do Telegram usando HTML."""
+    """Envia mensagem para o canal do Telegram em HTML."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -61,15 +58,16 @@ def enviar_mensagem_telegram(texto):
         return False
 
 def buscar_e_enviar_oferta():
-    """Busca produtos e envia a oferta diretamente."""
+    """Busca produtos no Mercado Livre Brasil e envia o link direto com a tag de afiliado."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
-    for tentativa in range(5):
+    # Tenta até 3 vezes encontrar um produto válido antes de encerrar
+    for tentativa in range(3):
         termo = escolher_termo_busca()
         url = "https://api.mercadolibre.com/sites/MLB/search"
-        params = {"q": termo, "limit": 15}
+        params = {"q": termo, "limit": 10}
         
         try:
             resposta = requests.get(url, params=params, headers=headers, timeout=10)
@@ -90,6 +88,7 @@ def buscar_e_enviar_oferta():
                         preco_original = preco_atual * 1.25
                         desconto_pct = 20
 
+                    # Link direto do produto com parâmetro de afiliado
                     link_base = item.get("permalink")
                     divisor = "&" if "?" in link_base else "?"
                     link_produto = f"{link_base}{divisor}matt_tool={MATT_TOOL}&matt_word={MATT_WORD}"
@@ -106,17 +105,13 @@ def buscar_e_enviar_oferta():
                     
                     print(f"Enviando oferta [{termo}]: {titulo}")
                     if enviar_mensagem_telegram(mensagem):
-                        return True
+                        return
         except Exception as e:
             print(f"Tentativa {tentativa+1} falhou: {e}")
             
-    print("Não foi possível enviar uma oferta nesta tentativa.")
-    return False
+    print("Não foi possível enviar a oferta.")
 
 if __name__ == "__main__":
-    print("=== INICIANDO BOT DE OFERTAS CONTINUO ===")
-    while True:
-        buscar_e_enviar_oferta()
-        print(f"Aguardando {INTERVALO_POSTAGEM} segundos para a próxima postagem...")
-        time.sleep(INTERVALO_POSTAGEM)
-        
+    print("=== EXECUTANDO CRON JOB ===")
+    buscar_e_enviar_oferta()
+    
