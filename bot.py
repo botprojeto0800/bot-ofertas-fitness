@@ -1,5 +1,5 @@
 import os
-import time
+import random
 import requests
 
 # ==========================================
@@ -19,14 +19,14 @@ def enviar_mensagem_telegram(texto):
     }
     try:
         resposta = requests.post(url, json=payload, timeout=10)
+        print(f"Status Telegram: {resposta.status_code}")
         return resposta.status_code == 200
     except Exception as e:
         print(f"Erro ao enviar para o Telegram: {e}")
         return False
 
-def buscar_e_enviar_ofertas():
-    """Busca ofertas e envia para o Telegram."""
-    # Usando API alternativa estável para evitar o erro 403 do IP do Render
+def buscar_e_enviar_oferta_unica():
+    """Busca produtos, seleciona um e envia no formato de promoção."""
     url = "https://dummyjson.com/products/category/sports-accessories"
     
     headers = {
@@ -37,28 +37,37 @@ def buscar_e_enviar_ofertas():
         resposta = requests.get(url, headers=headers, timeout=10)
         if resposta.status_code == 200:
             dados = resposta.json()
-            produtos = dados.get("products", [])[:5]
+            produtos = dados.get("products", [])
             
             if not produtos:
                 print("Nenhuma oferta encontrada.")
                 return
 
-            print(f"Encontradas {len(produtos)} ofertas. Enviando para o Telegram...")
+            # Seleciona apenas 1 produto aleatório da lista por execução
+            item = random.choice(produtos)
             
-            for item in produtos:
-                titulo = item.get("title")
-                preco = item.get("price")
-                
-                mensagem = (
-                    f"🔥 *OFERTA FITNESS ENCONTRADA!*\n\n"
-                    f"📌 *Produto:* {titulo}\n"
-                    f"💰 *Preço:* R$ {preco * 5:.2f}\n\n"
-                    f"🔗 [Clique aqui para ver a oferta](https://www.mercadolivre.com.br)"
-                )
-                
-                enviar_mensagem_telegram(mensagem)
-                time.sleep(2)
-                
+            titulo = item.get("title")
+            preco_atual = item.get("price") * 5  # Conversão aproximada para R$
+            desconto_pct = int(item.get("discountPercentage", 15))
+            
+            # Cálculo do preço antigo sem desconto
+            preco_antigo = preco_atual / (1 - (desconto_pct / 100))
+            
+            link_oferta = "https://www.mercadolivre.com.br"
+            
+            # Formatação exatamente igual ao layout desejado
+            mensagem = (
+                f"🔥 *ACHADO FITNESS EM OFERTA!* 🔥\n\n"
+                f"💪 *{titulo}*\n\n"
+                f"❌ De: ~R$ {preco_antigo:.2f}~\n"
+                f"✅ *Por apenas: R$ {preco_atual:.2f} ({desconto_pct}% OFF)*\n\n"
+                f"🛒 Garante o teu aqui:\n"
+                f"👉 {link_oferta}\n\n"
+                f"⚠️ _Oferta por tempo limitado!_"
+            )
+            
+            print(f"Enviando 1 oferta para o Telegram: {titulo}")
+            enviar_mensagem_telegram(mensagem)
             print("Envio concluído com sucesso!")
         else:
             print("Erro na requisição:", resposta.status_code)
@@ -66,6 +75,6 @@ def buscar_e_enviar_ofertas():
         print(f"Erro na execução da busca: {e}")
 
 if __name__ == "__main__":
-    print("=== EXECUTANDO BUSCA DE OFERTAS ===")
-    buscar_e_enviar_ofertas()
+    print("=== EXECUTANDO BUSCA DE OFERTA ÚNICA ===")
+    buscar_e_enviar_oferta_unica()
     
