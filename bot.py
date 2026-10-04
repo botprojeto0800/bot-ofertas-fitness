@@ -4,18 +4,22 @@ TOKEN = "8619062228:AAGoyimr33jeAqqM8ds7qBLKHXgm6-5rmQ"
 ID_DO_CHAT = "@ofertasfitness0800"
 
 def buscar_e_postar_oferta():
-    # API pública de ofertas e buscas do Mercado Livre Brasil
-    url = "https://api.mercadolibre.com/sites/MLB/search?q=suplementos&limit=50"
+    # Categoria de Suplementos / Esportes e Fitness
+    url = "https://api.mercadolibre.com/sites/MLB/search?category=MLB1276&limit=50"
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7"
     }
 
     try:
-        res = requests.get(url, headers=headers).json()
+        response = requests.get(url, headers=headers)
+        res = response.json()
         resultados = res.get("results", [])
         
-        print(f"Total de itens retornados pela API: {len(resultados)}")
+        print(f"Status da API: {response.status_code}")
+        print(f"Total de itens retornados: {len(resultados)}")
 
         for item in resultados:
             nome = item.get("title", "")
@@ -23,7 +27,7 @@ def buscar_e_postar_oferta():
             preco_original = item.get("original_price")
             link = item.get("permalink")
 
-            # Se houver preço antigo e for maior que o atual
+            # Se houver preço original com desconto entre 10% e 65%
             if preco_original and preco_atual and preco_original > preco_atual:
                 desconto = round(((preco_original - preco_atual) / preco_original) * 100)
                 if 10 <= desconto <= 65:
@@ -41,7 +45,7 @@ def buscar_e_postar_oferta():
                     enviar_telegram(texto, nome, f"{desconto}% OFF")
                     return
 
-            # Se não houver preço original preenchido na API, envia o produto direto
+            # Caso não tenha o campo original_price, envia como Destaque
             elif preco_atual and link:
                 preco_por = f"{preco_atual:.2f}".replace('.', ',')
 
@@ -52,11 +56,11 @@ def buscar_e_postar_oferta():
                         f"{link}\n\n" \
                         f"⚠️ <i>Aproveite enquanto durar o estoque!</i>"
 
-                enviar_telegram(texto, nome, "Preço Especial")
+                enviar_telegram(texto, nome, "Destaque")
                 return
 
     except Exception as e:
-        print(f"Erro na requisição: {e}")
+        print(f"Erro ao consultar a API: {e}")
 
     print("Nenhum produto encontrado nesta execução.")
 
