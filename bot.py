@@ -1,4 +1,5 @@
 import os
+import time
 import random
 import requests
 
@@ -12,7 +13,9 @@ TELEGRAM_CHAT_ID = "-1003941863470"
 MATT_TOOL = "41514834"
 MATT_WORD = "cleiton2001js"
 
-# Termos de busca diretos
+# Tempo de espera entre cada envio (em segundos).Ex: 3600 = 1 hora
+INTERVALO_SEGUNDOS = 3600 
+
 TERMOS_SUPLEMENTOS = [
     "creatina", "whey protein", "hipercalorico", 
     "barra proteica", "pre treino", "bcaa", "glutamina", 
@@ -64,7 +67,6 @@ def buscar_e_enviar_oferta():
         "Accept": "application/json"
     }
 
-    # Tenta até 5 termos diferentes antes de encerrar
     for tentativa in range(5):
         termo = escolher_termo_busca()
         url = "https://api.mercadolibre.com/sites/MLB/search"
@@ -76,7 +78,6 @@ def buscar_e_enviar_oferta():
                 dados = resposta.json()
                 resultados = dados.get("results", [])
                 
-                # Filtra apenas itens válidos com preço e permalink
                 itens_validos = [
                     item for item in resultados 
                     if item.get("permalink") and item.get("price")
@@ -95,7 +96,6 @@ def buscar_e_enviar_oferta():
                         preco_original = preco_atual * 1.25
                         desconto_pct = 20
 
-                    # Monta o link direto do produto com a tag de afiliado
                     link_base = item.get("permalink")
                     divisor = "&" if "?" in link_base else "?"
                     link_produto = f"{link_base}{divisor}matt_tool={MATT_TOOL}&matt_word={MATT_WORD}"
@@ -112,15 +112,17 @@ def buscar_e_enviar_oferta():
                     
                     print(f"Sucesso na busca [{termo}]: {titulo}")
                     if enviar_mensagem_telegram(mensagem):
-                        return
-            else:
-                print(f"Tentativa {tentativa+1} - API respondeu com status {resposta.status_code}")
+                        return True
         except Exception as e:
             print(f"Tentativa {tentativa+1} falhou: {e}")
             
     print("Não foi possível obter produtos nesta execução.")
+    return False
 
 if __name__ == "__main__":
-    print("=== EXECUTANDO CRON JOB ===")
-    buscar_e_enviar_oferta()
-    
+    print("=== INICIANDO BOT DE OFERTAS ===")
+    while True:
+        buscar_e_enviar_oferta()
+        print(f"Aguardando {INTERVALO_SEGUNDOS} segundos para a próxima postagem...")
+        time.sleep(INTERVALO_SEGUNDOS)
+        
