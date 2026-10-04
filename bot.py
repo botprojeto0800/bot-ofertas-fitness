@@ -6,7 +6,7 @@ import requests
 # CONFIGURAÇÕES DO TELEGRAM
 # ==========================================
 TELEGRAM_BOT_TOKEN = "8619062228:AAGGoyimr33jeAgqM8ds7qBLKHxgm6-5rmQ"
-TELEGRAM_CHAT_ID = "@ofertasfitness0080"
+TELEGRAM_CHAT_ID = "-1003941863470"
 
 def enviar_mensagem_telegram(texto):
     """Envia mensagem para o canal do Telegram."""
