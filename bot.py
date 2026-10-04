@@ -1,71 +1,62 @@
 import requests
 import time
 
-TOKEN = "8619062228:AAGGoyimr33jeAgqM8ds7qBLKHxgm6-5rmQ"
-CHAT_ID = "@ofertasfitness0800"
+TOKEN = "8619062228:AAGoyimr33jeAqqM8ds7qBLKHXgm6-5rmQ"
+ID_DO_CHAT = "@ofertasfitness0800"
 
 # Categorias no Mercado Livre (MLB1227 = Suplementos / MLB1430 = Calçados e Roupas)
 CATEGORIAS = [
-    {"id": "MLB1227", "nome": "Suplementos"},
-    {"id": "MLB1430", "nome": "Calçados/Roupas"}
+    {"categoria_id": "MLB1227", "nome": "Suplementos"},
+    {"categoria_id": "MLB1430", "nome": "Calçados/Roupas"}
 ]
 
-TERMOS_SUPLEMENTOS = ["whey", "creatina", "hipercalorico", "barra proteica", "pre treino", "bcaa", "glutamina"]
-TERMOS_VESTUARIO = ["tenis", "camiseta", "legging", "top", "bermuda", "shorts"]
+TERMOS_SUPLEMENTOS = ["soro", "creatina", "hipercalórico", "barra proteica", "pré-treino", "bcaa", "glutamina"]
+TERMOS_VESTUARIO = ["tênis", "camiseta", "legging", "regata", "bermuda", "shorts"]
 
 def buscar_e_postar_oferta():
     for cat in CATEGORIAS:
-        url_busca = f"https://api.mercadolibre.com/sites/MLB/search?category={cat['id']}&sort=relevance"
+        url_busca = f"https://api.mercadolibre.com/sites/MLB/search?category={cat['categoria_id']}&sort=relevance"
         res = requests.get(url_busca).json()
-        
+
         for item in res.get("results", [])[:15]:
             preco_original = item.get("original_price")
             preco_atual = item.get("price")
             nome = item.get("title", "")
             nome_lc = nome.lower()
-            
+
             # Validação de Categoria
-            e_suplemento = any(termo in nome_lc for termo in TERMOS_SUPLEMENTOS)
+            suplemento = any(termo in nome_lc for termo in TERMOS_SUPLEMENTOS)
             e_vestuario = any(termo in nome_lc for termo in TERMOS_VESTUARIO)
-            
-            if preco_original and preco_atual and (e_suplemento or e_vestuario):
+
+            if preco_original and preco_atual and (suplemento or e_vestuario):
                 desconto = round(((preco_original - preco_atual) / preco_original) * 100)
-                
+
                 # Regra de Desconto: Apenas 10% a 50%
                 if 10 <= desconto <= 50:
                     link = item.get("permalink")
                     preco_de = f"{preco_original:.2f}".replace('.', ',')
                     preco_por = f"{preco_atual:.2f}".replace('.', ',')
-                    
-                    categoria_txt = "💪 <b>ACHADO EM SUPLEMENTOS!</b>" if e_suplemento else "👟 <b>ACHADO FITNESS!</b>"
-                    
-                    texto = f"""🔥 {categoria_txt} 🔥
 
-📦 <b>{nome}</b>
+                    pagina_txt = "ACHADO EM SUPLEMENTOS" if suplemento else "ACHADO EM VESTUÁRIO"
 
-❌ De: <s>R$ {preco_de}</s>
-✅ <b>Por apenas: R$ {preco_por}</b> ({desconto}% OFF)
-
-🛒 <b>Garante o teu aqui:</b>
-👉 {link}
-
-⚠️ <i>Oferta por tempo limitado!</i>"""
+                    texto = f"🔥 <b>{pagina_txt}</b> 🔥\n\n" \
+                            f"<b>{nome}</b>\n\n" \
+                            f"❌ De: ~R$ {preco_de}~\n" \
+                            f"✅ Por apenas: <b>R$ {preco_por}</b> ({desconto}% OFF)\n\n" \
+                            f"🛒 Garanta o seu aqui:\n" \
+                            f"{link}\n\n" \
+                            f"⚠️ <i>Oferta por tempo limitado!</i>"
 
                     payload = {
-                        "chat_id": CHAT_ID,
+                        "chat_id": ID_DO_CHAT,
                         "text": texto,
                         "parse_mode": "HTML",
-                        "link_preview_options": {"prefer_small_media": True}
+                        "link_preview_options": {"is_disabled": False}
                     }
-                    
+
                     requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json=payload)
-                    print(f"✅ Postado com sucesso: {nome} ({desconto}% OFF)")
+                    print(f"Postado com sucesso: {nome} ({desconto}% OFF)")
                     return
 
-# Loop automático a cada 2 horas
-enquanto Verdadeiro:
-    imprimir("Procurando novas ofertas...")
-    buscar_e_postar_oferta()
-    tempo.dormir(7200)
-
-  
+# Executa uma única vez para o Cron Job do Render
+buscar_e_postar_oferta()
