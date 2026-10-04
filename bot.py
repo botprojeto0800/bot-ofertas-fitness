@@ -1,108 +1,85 @@
 import os
+import time
 import requests
-import urllib.parse
 
 # ==========================================
-# CONFIGURAÇÕES E CREDENCIAIS
+# CONFIGURAÇÕES DO TELEGRAM
 # ==========================================
-CLIENT_ID = "3834562383694739"
-CLIENT_SECRET = "56kIUp6iddFIgljrB8vyT2oEmPcSOLQ1"
-REDIRECT_URI = "https://www.google.com"
+TELEGRAM_BOT_TOKEN = "8619062228:AAGGoyimr33jeAgqM8ds7qBLKHxgm6-5rmQ"
+TELEGRAM_CHAT_ID = "@ofertasfitness0080"
+
+# Parâmetros de busca no Mercado Livre
 SITE_ID = "MLB"  # Mercado Livre Brasil
+TERMO_BUSCA = "suplementos fitness"
+LIMITE_PRODUTOS = 5
 
-# ==========================================
-# FUNÇÕES DE AUTENTICAÇÃO (OAUTH 2.0)
-# ==========================================
-def gerar_url_autorizacao():
-    """Gera o link onde deves entrar no navegador para autorizar a aplicação."""
-    params = {
-        "response_type": "code",
-        "client_id": CLIENT_ID,
-        "redirect_uri": REDIRECT_URI
-    }
-    url_base = "https://auth.mercadolivre.com.br/authorization"
-    return f"{url_base}?{urllib.parse.urlencode(params)}"
+# Intervalo entre envios em segundos (3600 segundos = 1 hora)
+INTERVALO_SEGUNDOS = 3600 
 
-def obter_tokens(code):
-    """Troca o código 'code' obtido na URL após autorização pelos tokens de acesso."""
-    url = "https://api.mercadolibre.com/oauth/token"
+
+def enviar_mensagem_telegram(texto):
+    """Envia mensagem para o canal do Telegram."""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
-        'grant_type': 'authorization_code',
-        'client_id': CLIENT_ID,
-        'client_secret': CLIENT_SECRET,
-        'code': code,
-        'redirect_uri': REDIRECT_URI
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": texto,
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": False
     }
-    headers = {
-        'accept': 'application/json',
-        'content-type': 'application/x-www-form-urlencoded'
-    }
-    
-    resposta = requests.post(url, data=payload, headers=headers)
-    if resposta.status_code == 200:
-        return resposta.json()
-    else:
-        print("Erro ao obter tokens:", resposta.text)
-        return None
+    try:
+        resposta = requests.post(url, json=payload)
+        return resposta.status_code == 200
+    except Exception as e:
+        print(f"Erro ao enviar para o Telegram: {e}")
+        return False
 
-# ==========================================
-# FUNÇÃO PARA BUSCAR OFERTAS / PRODUTOS
-# ==========================================
-def buscar_ofertas_fitness(termo="suplementos fitness", limite=5):
-    """Realiza a busca de produtos/ofertas na API do Mercado Livre."""
+
+def buscar_e_enviar_ofertas():
+    """Busca ofertas no Mercado Livre e publica no Telegram."""
     url = f"https://api.mercadolibre.com/sites/{SITE_ID}/search"
     params = {
-        "q": termo,
-        "limit": limite
+        "q": TERMO_BUSCA,
+        "limit": LIMITE_PRODUTOS
     }
     
-    resposta = requests.get(url, params=params)
-    if resposta.status_code == 200:
-        dados = resposta.json()
-        resultados = dados.get("results", [])
-        
-        print(f"\n--- OFERTAS ENCONTRADAS PARA: '{termo}' ---")
-        for item in resultados:
-            titulo = item.get("title")
-            preco = item.get("price")
-            link = item.get("permalink")
-            print(f"• {titulo}")
-            print(f"  Preço: R$ {preco}")
-            print(f"  Link: {link}\n")
-    else:
-        print("Erro ao realizar busca:", resposta.text)
+    try:
+        resposta = requests.get(url, params=params)
+        if resposta.status_code == 200:
+            dados = resposta.json()
+            resultados = dados.get("results", [])
+            
+            if not resultados:
+                print("Nenhuma oferta encontrada.")
+                return
 
-# ==========================================
-# EXECUÇÃO PRINCIPAL
-# ==========================================
+            print(f"Encontradas {len(resultados)} ofertas. Enviando para o Telegram...")
+            
+            for item in resultados:
+                titulo = item.get("title")
+                preco = item.get("price")
+                link = item.get("permalink")
+                
+                mensagem = (
+                    f"🔥 *OFERTA FITNESS ENCONTRADA!*\n\n"
+                    f"📌 *Produto:* {titulo}\n"
+                    f"💰 *Preço:* R$ {preco:.2f}\n\n"
+                    f"🔗 [Clique aqui para ver a oferta]({link})"
+                )
+                
+                enviar_mensagem_telegram(mensagem)
+                time.sleep(2)  # Pausa de 2 segundos entre mensagens
+                
+            print("Envio concluído!")
+        else:
+            print("Erro na API do Mercado Livre:", resposta.text)
+    except Exception as e:
+        print(f"Erro na execução da busca: {e}")
+
+
 if __name__ == "__main__":
-    print("=== BOT OFERTAS FITNESS ===")
-    
-    # 1. Verifica autorização
-    print("\nPasso 1: Abre o link abaixo no navegador para autorizar:")
-    print(gerar_url_autorizacao())
-    print("\nApós clicar em 'Autorizar', serás redirecionado para o Google.")
-    
-    # 2. Recebe o código do utilizador
-    code_url = input("\nCola aqui a URL completa para onde foste redirecionado (ou apenas o valor após 'code='): ").strip()
-    
-    # Extrai o código da URL se o utilizador colou a URL inteira
-    if "code=" in code_url:
-        code = code_url.split("code=")[1].split("&")[0]
-    else:
-        code = code_url
-        
-    # 3. Troca o código pelo token
-    print("\nA autenticar aplicação...")
-    tokens = obter_tokens(code)
-    
-    if tokens:
-        print("\n✅ Autenticação realizada com sucesso!")
-        print(f"Access Token: {tokens.get('access_token')[:15]}...")
-        
-        # 4. Executa a busca de ofertas
-        print("\nA procurar produtos...")
-        buscar_ofertas_fitness(termo="creatina fitness", limite=5)
-    else:
-        print("\n❌ Falha na autenticação. Verifica se o código colado está correto e tenta novamente.")
+    print("=== BOT DE OFERTAS FITNESS INICIADO ===")
+    while True:
+        buscar_e_enviar_ofertas()
+        print(f"Aguardando {INTERVALO_SEGUNDOS} segundos para a próxima verificação...")
+        time.sleep(INTERVALO_SEGUNDOS)
         
