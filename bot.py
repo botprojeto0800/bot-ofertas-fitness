@@ -13,9 +13,6 @@ SITE_ID = "MLB"  # Mercado Livre Brasil
 TERMO_BUSCA = "suplementos fitness"
 LIMITE_PRODUTOS = 5
 
-# Intervalo entre envios em segundos (3600 segundos = 1 hora)
-INTERVALO_SEGUNDOS = 3600 
-
 
 def enviar_mensagem_telegram(texto):
     """Envia mensagem para o canal do Telegram."""
@@ -69,7 +66,7 @@ def buscar_e_enviar_ofertas():
                 enviar_mensagem_telegram(mensagem)
                 time.sleep(2)  # Pausa de 2 segundos entre mensagens
                 
-            print("Envio concluído!")
+            print("Envio concluído com sucesso!")
         else:
             print("Erro na API do Mercado Livre:", resposta.text)
     except Exception as e:
@@ -77,9 +74,6 @@ def buscar_e_enviar_ofertas():
 
 
 if __name__ == "__main__":
-    print("=== BOT DE OFERTAS FITNESS INICIADO ===")
-    while True:
-        buscar_e_enviar_ofertas()
-        print(f"Aguardando {INTERVALO_SEGUNDOS} segundos para a próxima verificação...")
-        time.sleep(INTERVALO_SEGUNDOS)
-        
+    print("=== EXECUTANDO BUSCA DE OFERTAS ===")
+    buscar_e_enviar_ofertas()
+    
