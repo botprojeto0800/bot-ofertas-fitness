@@ -12,7 +12,7 @@ TELEGRAM_CHAT_ID = "-1003941863470"
 MATT_TOOL = "41514834"
 MATT_WORD = "cleiton2001js"
 
-# Categorização para manter a proporção desejada
+# Categorização de busca
 TERMOS_SUPLEMENTOS = [
     "creatina growth", "whey protein concentrado", "hipercalorico", 
     "barra de proteina", "pre treino", "bcaa", "glutamina", 
@@ -31,7 +31,7 @@ TERMOS_EQUIPAMENTOS = [
 ]
 
 def escolher_termo_busca():
-    """Seleciona o termo respeitando a proporção: ~70-80% suplementos, ~15-20% roupas, ~10% equipamentos."""
+    """Proporção: ~75% suplementos, ~15% roupas, ~10% equipamentos."""
     sorteio = random.randint(1, 100)
     if sorteio <= 75:
         return random.choice(TERMOS_SUPLEMENTOS)
@@ -41,7 +41,7 @@ def escolher_termo_busca():
         return random.choice(TERMOS_EQUIPAMENTOS)
 
 def enviar_mensagem_telegram(texto):
-    """Envia mensagem para o canal do Telegram em HTML."""
+    """Envia mensagem para o canal do Telegram usando HTML."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -58,63 +58,59 @@ def enviar_mensagem_telegram(texto):
         return False
 
 def buscar_e_enviar_oferta():
-    """Busca produtos exclusivamente no Mercado Livre Brasil e direciona para a página direta do produto."""
-    termo = escolher_termo_busca()
-    url = "https://api.mercadolibre.com/sites/MLB/search"
-    params = {"q": termo, "limit": 20}
-    
+    """Tenta até 5 vezes encontrar um produto válido sem quebrar a execução."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
-    
-    try:
-        resposta = requests.get(url, params=params, headers=headers, timeout=10)
-        if resposta.status_code == 200:
-            dados = resposta.json()
-            resultados = dados.get("results", [])
-            
-            if not resultados:
-                print(f"Nenhum resultado para '{termo}'. Tentando novamente...")
-                return buscar_e_enviar_oferta()
 
-            item = random.choice(resultados)
-            
-            titulo = item.get("title")
-            preco_atual = float(item.get("price", 0))
-            preco_original = float(item.get("original_price") or 0)
-            
-            # Cálculo do preço antigo/desconto realista
-            if preco_original > preco_atual:
-                desconto_pct = int(((preco_original - preco_atual) / preco_original) * 100)
-            else:
-                preco_original = preco_atual * 1.25
-                desconto_pct = 20
+    for tentativa in range(5):
+        termo = escolher_termo_busca()
+        url = "https://api.mercadolibre.com/sites/MLB/search"
+        params = {"q": termo, "limit": 15}
+        
+        try:
+            resposta = requests.get(url, params=params, headers=headers, timeout=10)
+            if resposta.status_code == 200:
+                dados = resposta.json()
+                resultados = dados.get("results", [])
+                
+                if resultados:
+                    item = random.choice(resultados)
+                    
+                    titulo = item.get("title")
+                    preco_atual = float(item.get("price", 0))
+                    preco_original = float(item.get("original_price") or 0)
+                    
+                    if preco_original > preco_atual:
+                        desconto_pct = int(((preco_original - preco_atual) / preco_original) * 100)
+                    else:
+                        preco_original = preco_atual * 1.25
+                        desconto_pct = 20
 
-            # Link direto e exclusivo para a página do produto
-            link_base = item.get("permalink")
-            divisor = "&" if "?" in link_base else "?"
-            link_produto = f"{link_base}{divisor}matt_tool={MATT_TOOL}&matt_word={MATT_WORD}"
+                    # Link direto do produto com parâmetro de afiliado
+                    link_base = item.get("permalink")
+                    divisor = "&" if "?" in link_base else "?"
+                    link_produto = f"{link_base}{divisor}matt_tool={MATT_TOOL}&matt_word={MATT_WORD}"
+                    
+                    mensagem = (
+                        f"🔥 <b>ACHADO FITNESS EM OFERTA!</b> 🔥\n\n"
+                        f"💪 <b>{titulo}</b>\n\n"
+                        f"❌ <s>De: R$ {preco_original:.2f}</s>\n"
+                        f"✅ <b>Por apenas: R$ {preco_atual:.2f} ({desconto_pct}% OFF)</b>\n\n"
+                        f"🛒 <b>Garante o teu aqui:</b>\n"
+                        f"👉 {link_produto}\n\n"
+                        f"⚠️ <i>Oferta por tempo limitado!</i>"
+                    )
+                    
+                    print(f"Enviando oferta [{termo}]: {titulo}")
+                    if enviar_mensagem_telegram(mensagem):
+                        return
+        except Exception as e:
+            print(f"Tentativa {tentativa+1} falhou: {e}")
             
-            mensagem = (
-                f"🔥 <b>ACHADO FITNESS EM OFERTA!</b> 🔥\n\n"
-                f"💪 <b>{titulo}</b>\n\n"
-                f"❌ <s>De: R$ {preco_original:.2f}</s>\n"
-                f"✅ <b>Por apenas: R$ {preco_atual:.2f} ({desconto_pct}% OFF)</b>\n\n"
-                f"🛒 <b>Garante o teu aqui:</b>\n"
-                f"👉 {link_produto}\n\n"
-                f"⚠️ <i>Oferta por tempo limitado!</i>"
-            )
-            
-            print(f"Enviando oferta de [{termo}]: {titulo}")
-            enviar_mensagem_telegram(mensagem)
-        else:
-            print(f"Erro na API ML ({resposta.status_code}). Recarregando busca...")
-            # Tenta novamente para garantir que só produtos válidos do ML sejam enviados
-            return buscar_e_enviar_oferta()
-    except Exception as e:
-        print(f"Erro na execução da busca: {e}")
+    print("Não foi possível enviar uma oferta nesta execução.")
 
 if __name__ == "__main__":
-    print("=== EXECUTANDO BUSCA DIRETA MERCADO LIVRE ===")
+    print("=== EXECUTANDO BUSCA ===")
     buscar_e_enviar_oferta()
     
