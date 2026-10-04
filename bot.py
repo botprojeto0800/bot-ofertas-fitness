@@ -32,7 +32,8 @@ def buscar_e_postar_oferta():
                 desconto = round(((preco_original - preco_atual) / preco_original) * 100)
 
                 # Regra de Desconto: Apenas 10% a 50%
-                if 10 <= desconto <= 50:
+                if desconto >= 0:
+                                    
                     link = item.get("permalink")
                     preco_de = f"{preco_original:.2f}".replace('.', ',')
                     preco_por = f"{preco_atual:.2f}".replace('.', ',')
