@@ -63,8 +63,9 @@ def buscar_e_postar_oferta():
                     return
 
 # Loop automático a cada 2 horas
-while True:
-    print("🔎 Procurando novas ofertas...")
+enquanto Verdadeiro:
+    imprimir("Procurando novas ofertas...")
     buscar_e_postar_oferta()
-    time.sleep(7200)
+    tempo.dormir(7200)
+
   
