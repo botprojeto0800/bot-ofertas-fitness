@@ -12,10 +12,36 @@ TELEGRAM_CHAT_ID = "-1003941863470"
 MATT_TOOL = "41514834"
 MATT_WORD = "cleiton2001js"
 
-TERMOS_BUSCA = ["suplementos fitness", "creatina", "whey protein", "acessorios treino"]
+# Categorização para manter a proporção desejada
+TERMOS_SUPLEMENTOS = [
+    "creatina growth", "whey protein concentrado", "hipercalorico", 
+    "barra de proteina", "pre treino", "bcaa", "glutamina", 
+    "whey isolado", "pasta de amendoim"
+]
+
+TERMOS_ROUPAS = [
+    "camisa dry fit masculina treino", "top academia feminino", 
+    "bermuda treino academia", "legging academia feminina", 
+    "luva para academia treino", "garrafa de agua squeezes fitness"
+]
+
+TERMOS_EQUIPAMENTOS = [
+    "elastico exercicio kit band", "colchonete academia", 
+    "par de halteres", "corda de pular profissional", "barra de porta exercicios"
+]
+
+def escolher_termo_busca():
+    """Seleciona o termo respeitando a proporção: ~70-80% suplementos, ~15-20% roupas, ~10% equipamentos."""
+    sorteio = random.randint(1, 100)
+    if sorteio <= 75:
+        return random.choice(TERMOS_SUPLEMENTOS)
+    elif sorteio <= 90:
+        return random.choice(TERMOS_ROUPAS)
+    else:
+        return random.choice(TERMOS_EQUIPAMENTOS)
 
 def enviar_mensagem_telegram(texto):
-    """Envia mensagem para o canal do Telegram usando HTML para texto rasurado/tachado."""
+    """Envia mensagem para o canal do Telegram em HTML."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -32,10 +58,10 @@ def enviar_mensagem_telegram(texto):
         return False
 
 def buscar_e_enviar_oferta():
-    """Busca produtos reais do Mercado Livre e envia no formato correto com tag de afiliado."""
-    termo = random.choice(TERMOS_BUSCA)
+    """Busca produtos exclusivamente no Mercado Livre Brasil e direciona para a página direta do produto."""
+    termo = escolher_termo_busca()
     url = "https://api.mercadolibre.com/sites/MLB/search"
-    params = {"q": termo, "limit": 10}
+    params = {"q": termo, "limit": 20}
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -48,22 +74,23 @@ def buscar_e_enviar_oferta():
             resultados = dados.get("results", [])
             
             if not resultados:
-                print("Nenhum produto encontrado.")
-                return
+                print(f"Nenhum resultado para '{termo}'. Tentando novamente...")
+                return buscar_e_enviar_oferta()
 
             item = random.choice(resultados)
             
             titulo = item.get("title")
             preco_atual = float(item.get("price", 0))
-            preco_original = float(item.get("original_price") or (preco_atual * 1.25))
+            preco_original = float(item.get("original_price") or 0)
             
+            # Cálculo do preço antigo/desconto realista
             if preco_original > preco_atual:
                 desconto_pct = int(((preco_original - preco_atual) / preco_original) * 100)
             else:
-                preco_original = preco_atual * 1.3
-                desconto_pct = 23
-            
-            # Anexa os parâmetros exatos de comissão ao link do produto
+                preco_original = preco_atual * 1.25
+                desconto_pct = 20
+
+            # Link direto e exclusivo para a página do produto
             link_base = item.get("permalink")
             divisor = "&" if "?" in link_base else "?"
             link_produto = f"{link_base}{divisor}matt_tool={MATT_TOOL}&matt_word={MATT_WORD}"
@@ -78,41 +105,16 @@ def buscar_e_enviar_oferta():
                 f"⚠️ <i>Oferta por tempo limitado!</i>"
             )
             
-            print(f"Enviando oferta: {titulo}")
+            print(f"Enviando oferta de [{termo}]: {titulo}")
             enviar_mensagem_telegram(mensagem)
         else:
-            print(f"Erro na API ML ({resposta.status_code}). Tentando produto fallback...")
-            enviar_produto_fallback()
+            print(f"Erro na API ML ({resposta.status_code}). Recarregando busca...")
+            # Tenta novamente para garantir que só produtos válidos do ML sejam enviados
+            return buscar_e_enviar_oferta()
     except Exception as e:
-        print(f"Erro na execução: {e}")
-        enviar_produto_fallback()
-
-def enviar_produto_fallback():
-    """Fallback caso a API direta do Mercado Livre bloqueie a requisição."""
-    url = "https://dummyjson.com/products/category/sports-accessories"
-    try:
-        res = requests.get(url, timeout=10)
-        if res.status_code == 200:
-            prod = random.choice(res.json().get("products", []))
-            titulo = prod.get("title")
-            preco = prod.get("price") * 5
-            preco_antigo = preco * 1.3
-            link = f"https://www.mercadolivre.com.br/c/esportes-e-fitness?matt_tool={MATT_TOOL}&matt_word={MATT_WORD}"
-            
-            msg = (
-                f"🔥 <b>ACHADO FITNESS EM OFERTA!</b> 🔥\n\n"
-                f"💪 <b>{titulo}</b>\n\n"
-                f"❌ <s>De: R$ {preco_antigo:.2f}</s>\n"
-                f"✅ <b>Por apenas: R$ {preco:.2f} (23% OFF)</b>\n\n"
-                f"🛒 <b>Garante o teu aqui:</b>\n"
-                f"👉 {link}\n\n"
-                f"⚠️ <i>Oferta por tempo limitado!</i>"
-            )
-            enviar_mensagem_telegram(msg)
-    except Exception as e:
-        print(f"Erro no fallback: {e}")
+        print(f"Erro na execução da busca: {e}")
 
 if __name__ == "__main__":
-    print("=== EXECUTANDO BUSCA ===")
+    print("=== EXECUTANDO BUSCA DIRETA MERCADO LIVRE ===")
     buscar_e_enviar_oferta()
     
