@@ -1,4 +1,5 @@
 import os
+import time
 import random
 import requests
 
@@ -12,7 +13,9 @@ TELEGRAM_CHAT_ID = "-1003941863470"
 MATT_TOOL = "41514834"
 MATT_WORD = "cleiton2001js"
 
-# Categorização de busca
+# Tempo entre postagens (em segundos). Exemplo: 3600 = 1 hora
+INTERVALO_POSTAGEM = 3600 
+
 TERMOS_SUPLEMENTOS = [
     "creatina growth", "whey protein concentrado", "hipercalorico", 
     "barra de proteina", "pre treino", "bcaa", "glutamina", 
@@ -58,7 +61,7 @@ def enviar_mensagem_telegram(texto):
         return False
 
 def buscar_e_enviar_oferta():
-    """Tenta até 5 vezes encontrar um produto válido sem quebrar a execução."""
+    """Busca produtos e envia a oferta diretamente."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
@@ -87,7 +90,6 @@ def buscar_e_enviar_oferta():
                         preco_original = preco_atual * 1.25
                         desconto_pct = 20
 
-                    # Link direto do produto com parâmetro de afiliado
                     link_base = item.get("permalink")
                     divisor = "&" if "?" in link_base else "?"
                     link_produto = f"{link_base}{divisor}matt_tool={MATT_TOOL}&matt_word={MATT_WORD}"
@@ -104,13 +106,17 @@ def buscar_e_enviar_oferta():
                     
                     print(f"Enviando oferta [{termo}]: {titulo}")
                     if enviar_mensagem_telegram(mensagem):
-                        return
+                        return True
         except Exception as e:
             print(f"Tentativa {tentativa+1} falhou: {e}")
             
-    print("Não foi possível enviar uma oferta nesta execução.")
+    print("Não foi possível enviar uma oferta nesta tentativa.")
+    return False
 
 if __name__ == "__main__":
-    print("=== EXECUTANDO BUSCA ===")
-    buscar_e_enviar_oferta()
-    
+    print("=== INICIANDO BOT DE OFERTAS CONTINUO ===")
+    while True:
+        buscar_e_enviar_oferta()
+        print(f"Aguardando {INTERVALO_POSTAGEM} segundos para a próxima postagem...")
+        time.sleep(INTERVALO_POSTAGEM)
+        
